@@ -12,12 +12,13 @@ class RequestBuilderTest {
     @Test
     void addHeader() {
 
-        request.addHeader("key", "value");
-        assertTrue(request.getRequest().containsHeader("key"));
+        request.addHeader("foo", "bar");
+        assertTrue(request.getRequest().containsHeader("foo"));
     }
 
     @Test
     void addPlain() {
+        request.addPlain("foobar");
     }
 
     @Test
@@ -30,10 +31,12 @@ class RequestBuilderTest {
 
     @Test
     void convertToCharset() {
+        assertEquals("GB2312", RequestBuilder.convertToCharset("text/plain; charset=GB2312").name());
     }
 
     @Test
     void convertToContentType() {
+        System.out.println(RequestBuilder.convertToContentType("text/plain; charset=GB2312").toString());
     }
 
     @Test

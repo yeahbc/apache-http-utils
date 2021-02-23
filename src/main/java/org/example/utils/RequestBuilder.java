@@ -21,12 +21,12 @@ import java.util.List;
 
 public class RequestBuilder {
 
-    private HttpUtils httpUtils;
-    private HttpUriRequest httpRequest;
-    private ContentType contentType;
-    private String stringContent = "";
-    private List<NameValuePair> formContent = new ArrayList<>();
-    private MultipartEntityBuilder formDataContent = MultipartEntityBuilder.create();
+    HttpUtils httpUtils;
+    HttpUriRequest httpRequest;
+    ContentType contentType;
+    String stringContent;
+    List<NameValuePair> formContent;
+    MultipartEntityBuilder formDataContent;
 
     public RequestBuilder(HttpUtils httpUtils, String requestMethod, String url) {
 
@@ -43,6 +43,13 @@ public class RequestBuilder {
         Args.notBlank(name, "name");
         Args.notNull(value, "value");
         httpRequest.setHeader(name, value);
+        return this;
+    }
+
+    public RequestBuilder delHeaders(String name){
+
+        Args.notBlank(name, "name");
+        httpRequest.removeHeaders(name);
         return this;
     }
 
@@ -67,6 +74,9 @@ public class RequestBuilder {
         Args.notBlank(name, "name");
         Args.notBlank(value, "value");
         contentType = ContentType.create("application/x-www-form-urlencoded", StandardCharsets.UTF_8);
+        if(formContent == null){
+            formContent = new ArrayList<>();
+        }
         formContent.add(new BasicNameValuePair(name, value));
         return this;
     }
@@ -120,6 +130,9 @@ public class RequestBuilder {
         if(convertToContentType(contentTypeString) == null){
             throw new RuntimeException("Invalid content-type string: " + contentTypeString);
         }else {
+            if(formDataContent == null){
+                formDataContent = MultipartEntityBuilder.create();
+            }
             formDataContent.addTextBody(name, value, convertToContentType(contentTypeString));
         }
         return this;
@@ -143,6 +156,9 @@ public class RequestBuilder {
         if(convertToContentType(contentTypeString) == null){
             throw new RuntimeException("Invalid content-type string: " + contentTypeString);
         }else {
+            if(formDataContent == null){
+                formDataContent = MultipartEntityBuilder.create();
+            }
             formDataContent.addBinaryBody(name, file, convertToContentType(contentTypeString), (fileName != null )? fileName : file.getName());
         }
         return this;
@@ -153,7 +169,8 @@ public class RequestBuilder {
         try{
 
             if(!(httpRequest instanceof HttpGet)) {
-                if (!httpRequest.containsHeader("Content-Type") && contentType != null) {
+
+                if (!httpRequest.containsHeader("Content-Type")) {
                     httpRequest.setHeader("ContentType", contentType.toString());
                 }
 
@@ -166,6 +183,9 @@ public class RequestBuilder {
                     entity = formDataContent.build();
                 }
 
+                if(entity == null){
+                    throw new RuntimeException("lack of request entity");
+                }
                 ((HttpPost) httpRequest).setEntity(entity);
             }
 
