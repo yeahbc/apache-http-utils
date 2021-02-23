@@ -1,12 +1,22 @@
 package org.example.utils;
 
+import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HttpUtils {
 
-    private CloseableHttpClient httpClient;
+    private final CloseableHttpClient httpClient;
     private CloseableHttpResponse httpResponse;
 
     public HttpUtils(CloseableHttpClient httpClient){
@@ -17,16 +27,16 @@ public class HttpUtils {
         return new HttpUtils(HttpClients.createDefault());
     }
 
-    public static HttpClientBuilder createCustom(){
-        return new HttpClientBuilder();
+    public static ClientBuilder createCustom(){
+        return new ClientBuilder();
     }
 
-    public HttpRequestBuilder GET(String url){
-        return new HttpRequestBuilder(this, "GET", url);
+    public RequestBuilder GET(String url){
+        return new RequestBuilder(this, "GET", url);
     }
 
-    public HttpRequestBuilder POST(String url){
-        return new HttpRequestBuilder(this, "POST", url);
+    public RequestBuilder POST(String url){
+        return new RequestBuilder(this, "POST", url);
     }
 
     protected CloseableHttpClient getHttpClient(){
@@ -37,28 +47,79 @@ public class HttpUtils {
         this.httpResponse = httpResponse;
     }
 
+    public String[] getHeaders(String headerName){
 
+        List<String> headerList = new ArrayList<>();
+        for(Header header : httpResponse.getAllHeaders()){
+            if(header.getName().equalsIgnoreCase(headerName)){
+                headerList.add(header.getValue());
+            }
+        }
+        return headerList.toArray(new String[0]);
+    }
 
+    public void consume() {
 
-    public static void main(String... args){
+        try{
+            EntityUtils.consume(httpResponse.getEntity());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-        HttpUtils utils = HttpUtils.createDefault();
+    public String getContent(){
 
-        utils.GET("https://www.baidu.com")
-                .addHeader("key", "value")
-                .request();
+        try{
+            Charset charset = null;
+            if(httpResponse.containsHeader("Content-Type")){
+                String contentTypeString = httpResponse.getFirstHeader("Content-Type").getValue();
+                charset = RequestBuilder.convertToCharset(contentTypeString);
+            }
+            return EntityUtils.toString(httpResponse.getEntity(), charset == null ? StandardCharsets.UTF_8 : charset);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        } finally{
+            try {
+                httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-        utils.POST("http://example.org")
-                .addHeader("key", "value")
-                .addText("hello")
-                .request();
+    public File getFile(){
 
+        try{
+            File file = File.createTempFile("response-", ".tmp", new File(System.getProperty("user.home")));
+            httpResponse.getEntity().writeTo(new FileOutputStream(file));
+            return file;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        } finally {
+            try {
+                httpResponse.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-//        utils.consume();
-//        utils.getContent();
-//        utils.getFile();
-//
-//        utils.close();
+    public void close(){
 
+        try{
+            if(httpClient != null){
+                httpClient.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

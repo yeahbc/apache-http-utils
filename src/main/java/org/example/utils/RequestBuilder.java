@@ -11,13 +11,15 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.Args;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-public class HttpRequestBuilder {
+public class RequestBuilder {
 
     private HttpUtils httpUtils;
     private HttpUriRequest httpRequest;
@@ -26,7 +28,7 @@ public class HttpRequestBuilder {
     private List<NameValuePair> formContent = new ArrayList<>();
     private MultipartEntityBuilder formDataContent = MultipartEntityBuilder.create();
 
-    public HttpRequestBuilder(HttpUtils httpUtils, String requestMethod, String url) {
+    public RequestBuilder(HttpUtils httpUtils, String requestMethod, String url) {
 
         this.httpUtils = httpUtils;
         if(requestMethod.contentEquals("GET")){
@@ -36,33 +38,53 @@ public class HttpRequestBuilder {
         }
     }
 
-    public HttpRequestBuilder addHeader(String name, String value){
+    public RequestBuilder addHeader(String name, String value){
+
+        Args.notBlank(name, "name");
+        Args.notNull(value, "value");
         httpRequest.setHeader(name, value);
         return this;
     }
 
-    public HttpRequestBuilder addText(String textString){
+    public RequestBuilder addPlain(String plainString){
+
+        Args.notBlank(plainString, "plainString");
         contentType = ContentType.create("text/plain", StandardCharsets.UTF_8);
-        stringContent = textString;
+        stringContent = plainString;
         return this;
     }
 
-    public HttpRequestBuilder addJson(String jsonString){
+    public RequestBuilder addJson(String jsonString){
+
+        Args.notBlank(jsonString, "jsonString");
         contentType = ContentType.create("application/json", StandardCharsets.UTF_8);
         stringContent = jsonString;
         return this;
     }
 
-    public HttpRequestBuilder addForm(String name, String value){
+    public RequestBuilder addForm(String name, String value){
+
+        Args.notBlank(name, "name");
+        Args.notBlank(value, "value");
         contentType = ContentType.create("application/x-www-form-urlencoded", StandardCharsets.UTF_8);
         formContent.add(new BasicNameValuePair(name, value));
         return this;
     }
 
+    public static Charset convertToCharset(String contentType){
 
+        Args.notBlank(contentType, "contentType");
+        ContentType converted = convertToContentType(contentType);
+        if(converted != null && converted.getCharset() != null){
+            return converted.getCharset();
+        }else{
+            return null;
+        }
+    }
 
-    public ContentType convert(String contentType){
+    public static ContentType convertToContentType(String contentType){
 
+        Args.notBlank(contentType, "contentType");
         try{
             String mimeType = null;
             List<NameValuePair> nvps = new ArrayList<>();
@@ -84,38 +106,44 @@ public class HttpRequestBuilder {
         }
     }
 
-    public HttpRequestBuilder addFormData(String name, String value){
+    public RequestBuilder addFormData(String name, String value){
         return addFormData(name, value, "text/plain; charset=UTF-8");
     }
 
-    public HttpRequestBuilder addFormData(String name, String value, String contentTypeString){
+    public RequestBuilder addFormData(String name, String value, String contentTypeString){
 
+        Args.notBlank(name, "name");
+        Args.notBlank(value, "value");
+        Args.notBlank(contentTypeString, "contentTypeString");
         contentType = ContentType.create("multipart/form-data",
                 new BasicNameValuePair("boundary", "----------------=="));
-        if(contentTypeString == null || convert(contentTypeString) == null){
+        if(convertToContentType(contentTypeString) == null){
             throw new RuntimeException("Invalid content-type string: " + contentTypeString);
         }else {
-            formDataContent.addTextBody(name, value, convert(contentTypeString));
+            formDataContent.addTextBody(name, value, convertToContentType(contentTypeString));
         }
         return this;
     }
 
-    public HttpRequestBuilder addFormData(String name, File file){
+    public RequestBuilder addFormData(String name, File file){
         return addFormData(name, file, null);
     }
 
-    public HttpRequestBuilder addFormData(String name, File file, String fileName){
+    public RequestBuilder addFormData(String name, File file, String fileName){
         return addFormData(name, file, fileName, "application/octet-stream");
     }
 
-    public HttpRequestBuilder addFormData(String name, File file, String fileName, String contentTypeString){
+    public RequestBuilder addFormData(String name, File file, String fileName, String contentTypeString){
 
+        Args.notBlank(name, "name");
+        Args.notNull(file, "file");
+        Args.notBlank(contentTypeString, "contentTypeString");
         contentType = ContentType.create("multipart/form-data",
                 new BasicNameValuePair("boundary", "----------------=="));
-        if(contentTypeString == null || convert(contentTypeString) == null){
+        if(convertToContentType(contentTypeString) == null){
             throw new RuntimeException("Invalid content-type string: " + contentTypeString);
         }else {
-            formDataContent.addBinaryBody(name, file, convert(contentTypeString), (fileName != null )? fileName : file.getName());
+            formDataContent.addBinaryBody(name, file, convertToContentType(contentTypeString), (fileName != null )? fileName : file.getName());
         }
         return this;
     }
@@ -149,5 +177,9 @@ public class HttpRequestBuilder {
             e.printStackTrace();
             return -1;
         }
+    }
+
+    protected HttpUriRequest getRequest(){
+        return httpRequest;
     }
 }
