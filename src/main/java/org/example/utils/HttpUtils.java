@@ -3,7 +3,6 @@ package org.example.utils;
 import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 import java.io.File;
@@ -24,7 +23,7 @@ public class HttpUtils {
     }
 
     public static HttpUtils createDefault(){
-        return new HttpUtils(HttpClients.createDefault());
+        return new ClientBuilder().defaultBuild();
     }
 
     public static ClientBuilder createCustom(){
@@ -35,8 +34,28 @@ public class HttpUtils {
         return new RequestBuilder(this, "GET", url);
     }
 
+    public RequestBuilder HEAD(String url){
+        return new RequestBuilder(this, "HEAD", url);
+    }
+
     public RequestBuilder POST(String url){
         return new RequestBuilder(this, "POST", url);
+    }
+
+    public RequestBuilder PUT(String url){
+        return new RequestBuilder(this, "PUT", url);
+    }
+
+    public RequestBuilder DELETE(String url){
+        return new RequestBuilder(this, "DELETE", url);
+    }
+
+    public RequestBuilder TRACE(String url){
+        return new RequestBuilder(this, "TRACE", url);
+    }
+
+    public RequestBuilder OPTIONS(String url){
+        return new RequestBuilder(this, "OPTIONS", url);
     }
 
     public int getStatusCode(){
@@ -44,6 +63,10 @@ public class HttpUtils {
     }
 
     public String[] getHeaders(String headerName){
+
+        if(httpResponse == null){
+            return null;
+        }
 
         List<String> headerList = new ArrayList<>();
         for(Header header : httpResponse.getAllHeaders()){
@@ -56,6 +79,9 @@ public class HttpUtils {
 
     public void consume() {
 
+        if(httpResponse == null){
+            throw new RuntimeException("No http response is returned");
+        }
         try{
             EntityUtils.consume(httpResponse.getEntity());
         } catch (IOException e) {
@@ -67,20 +93,30 @@ public class HttpUtils {
                 e.printStackTrace();
             }
         }
+
     }
 
     public String getContent(){
 
-        try{
-            Charset charset = null;
-            if(httpResponse.containsHeader("Content-Type")){
+        if(httpResponse == null){
+            throw new RuntimeException("No http response is returned");
+        }
+
+        Charset charset = null;
+
+        try {
+            if (httpResponse.containsHeader("Content-Type")) {
                 String contentTypeString = httpResponse.getFirstHeader("Content-Type").getValue();
                 charset = RequestBuilder.convertToCharset(contentTypeString);
             }
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
+        try{
             return EntityUtils.toString(httpResponse.getEntity(), charset == null ? StandardCharsets.UTF_8 : charset);
         } catch (IOException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         } finally{
             try {
                 httpResponse.close();
@@ -92,13 +128,15 @@ public class HttpUtils {
 
     public File getFile(){
 
+        if(httpResponse == null){
+            throw new RuntimeException("No http response is returned");
+        }
         try{
             File file = File.createTempFile("response-", ".tmp", new File(System.getProperty("user.home")));
             httpResponse.getEntity().writeTo(new FileOutputStream(file));
             return file;
         } catch (IOException e) {
-            e.printStackTrace();
-            return null;
+            throw new RuntimeException(e);
         } finally {
             try {
                 httpResponse.close();
@@ -115,7 +153,7 @@ public class HttpUtils {
                 httpClient.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 }

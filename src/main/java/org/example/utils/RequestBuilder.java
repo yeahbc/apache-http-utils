@@ -33,7 +33,7 @@ public class RequestBuilder {
         Args.notBlank(requestMethod, "requestMethod");
         Args.notBlank(url, "url");
 
-        List<String> methods = Arrays.asList(new String[]{"GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "OPTIONS"});
+        List<String> methods = Arrays.asList("GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "OPTIONS");
         switch(methods.indexOf(requestMethod)){
             case 0:
                 httpRequest = new HttpGet(url);
@@ -62,6 +62,32 @@ public class RequestBuilder {
         this.httpUtils = httpUtils;
     }
 
+    public static Charset convertToCharset(String contentTypeString){
+        return convertToContentType(contentTypeString).getCharset();
+    }
+
+    public static ContentType convertToContentType(String contentTypeString){
+
+        Args.notBlank(contentTypeString, "contentTypeString");
+        String mimeType = "";
+        List<NameValuePair> nvps = new ArrayList<>();
+        String[] params = contentTypeString.split(";");
+        for(int i=0; i<params.length; i++){
+            if(i == 0){
+                mimeType = params[i].trim();
+            }else{
+                if(params[i].matches(".+=.*")) {
+                    String name = params[i].substring(0, params[i].indexOf("=")).trim();
+                    String value = params[i].substring(params[i].indexOf("=") + 1).trim();
+                    nvps.add(new BasicNameValuePair(name, value));
+                }else{
+                    throw new RuntimeException("Unsupported parameter: " + params[i]);
+                }
+            }
+        }
+        return ContentType.create(mimeType, nvps.toArray(new NameValuePair[0]));
+    }
+
     public RequestBuilder addHeader(String name, String value){
 
         Args.notBlank(name, "name");
@@ -75,34 +101,6 @@ public class RequestBuilder {
         Args.notBlank(name, "name");
         httpRequest.removeHeaders(name);
         return this;
-    }
-
-    protected void setContentType(String entityType){
-
-        List<String> list = Arrays.asList(new String[]{"text", "json", "form", "form-data"});
-        switch(list.indexOf(entityType)){
-            case 0:
-                this.contentType = ContentType.create("text/plain", StandardCharsets.UTF_8);
-                formContent = null;
-                formDataContent = null;
-                break;
-            case 1:
-                this.contentType = ContentType.create("application/json", StandardCharsets.UTF_8);
-                formContent = null;
-                formDataContent = null;
-                break;
-            case 2:
-                this.contentType = ContentType.create("application/x-www-form-urlencoded", StandardCharsets.UTF_8);
-                stringContent = null;
-                formDataContent = null;
-                break;
-            case 3:
-                this.contentType = ContentType.create("multipart/form-data",
-                        new BasicNameValuePair("boundary", "----------------**"));;
-                stringContent = null;
-                formContent = null;
-                break;
-        }
     }
 
     public RequestBuilder addPlain(String plainString){
@@ -123,7 +121,7 @@ public class RequestBuilder {
 
     public RequestBuilder addForm(String name, String value){
 
-        Args.notNull(name, "name");
+        Args.notBlank(name, "name");
         Args.notNull(value, "value");
 
         if(formContent == null){
@@ -134,53 +132,15 @@ public class RequestBuilder {
         return this;
     }
 
-    public static Charset convertToCharset(String contentType){
-
-        Args.notBlank(contentType, "contentType");
-        if(convertToContentType(contentType) != null){
-            return convertToContentType(contentType).getCharset();
-        }else{
-            return null;
-        }
+    public RequestBuilder addFormDataString(String name, String value){
+        return addFormDataString(name, value, "text/plain; charset=UTF-8");
     }
 
-    public static ContentType convertToContentType(String contentType){
+    public RequestBuilder addFormDataString(String name, String value, String contentTypeString){
 
-        Args.notBlank(contentType, "contentType");
-        try{
-            String mimeType = null;
-            List<NameValuePair> nvps = new ArrayList<>();
-            for(String param : contentType.split(";")){
-                if(mimeType == null){
-                    mimeType = param.trim();
-                }else{
-                    if(param.matches(".+=.*")) {
-                        String name = param.substring(0, param.indexOf("=")).trim();
-                        String value = param.substring(param.indexOf("=") + 1).trim();
-                        nvps.add(new BasicNameValuePair(name, value));
-                    }
-                }
-            }
-            return ContentType.create(mimeType, nvps.toArray(new NameValuePair[0]));
-        } catch(Exception e){
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    public RequestBuilder addFormData(String name, String value){
-        return addFormData(name, value, "text/plain; charset=UTF-8");
-    }
-
-    public RequestBuilder addFormData(String name, String value, String contentTypeString){
-
-        Args.notNull(name, "name");
+        Args.notBlank(name, "name");
         Args.notNull(value, "value");
         Args.notBlank(contentTypeString, "contentTypeString");
-
-        if(convertToContentType(contentTypeString) == null){
-            throw new RuntimeException("Invalid contentTypeString argument: " + contentTypeString);
-        }
 
         if(formDataContent == null){
             formDataContent = MultipartEntityBuilder.create();
@@ -191,35 +151,64 @@ public class RequestBuilder {
         return this;
     }
 
-    public RequestBuilder addFormData(String name, File file){
-        return addFormData(name, file, null);
-    }
+    public RequestBuilder addFormDataFile(String name, File file){
 
-    public RequestBuilder addFormData(String name, File file, String fileName){
-        return addFormData(name, file, fileName, "application/octet-stream");
-    }
-
-    public RequestBuilder addFormData(String name, File file, String fileName, String contentTypeString){
-
-        Args.notNull(name, "name");
         Args.notNull(file, "file");
-        Args.notBlank(contentTypeString, "contentTypeString");
+        return addFormDataFile(name, file, file.getName());
+    }
 
-        if(convertToContentType(contentTypeString) == null){
-            throw new RuntimeException("Invalid contentTypeString argument: " + contentTypeString);
-        }
+    public RequestBuilder addFormDataFile(String name, File file, String fileName){
+
+        Args.notBlank(fileName, "fileName");
+        return addFormDataFile(name, file, fileName, "application/octet-stream");
+    }
+
+    public RequestBuilder addFormDataFile(String name, File file, String fileName, String contentTypeString){
+
+        Args.notBlank(name, "name");
+        Args.notNull(file, "file");
+        Args.notBlank(fileName, "fileName");
+        Args.notBlank(contentTypeString, "contentTypeString");
 
         if(formDataContent == null){
             formDataContent = MultipartEntityBuilder.create();
             formDataContent.setBoundary("----------------**");
         }
-        formDataContent.addBinaryBody(name, file, convertToContentType(contentTypeString), (fileName != null )? fileName : file.getName());
+        formDataContent.addBinaryBody(name, file, convertToContentType(contentTypeString), fileName);
         setContentType("form-data");
 
         return this;
     }
 
-    protected void setEntity(){
+    void setContentType(String entityType){
+
+        List<String> list = Arrays.asList("text", "json", "form", "form-data");
+        switch(list.indexOf(entityType)){
+            case 0:
+                this.contentType = ContentType.create("text/plain", StandardCharsets.UTF_8);
+                formContent = null;
+                formDataContent = null;
+                break;
+            case 1:
+                this.contentType = ContentType.create("application/json", StandardCharsets.UTF_8);
+                formContent = null;
+                formDataContent = null;
+                break;
+            case 2:
+                this.contentType = ContentType.create("application/x-www-form-urlencoded", StandardCharsets.UTF_8);
+                stringContent = null;
+                formDataContent = null;
+                break;
+            case 3:
+                this.contentType = ContentType.create("multipart/form-data",
+                        new BasicNameValuePair("boundary", "----------------**"));
+                stringContent = null;
+                formContent = null;
+                break;
+        }
+    }
+
+    void setEntity(){
 
         if(httpRequest instanceof HttpGet || httpRequest instanceof HttpHead || httpRequest instanceof HttpDelete ||
                 httpRequest instanceof HttpTrace || httpRequest instanceof HttpOptions){

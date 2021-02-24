@@ -12,13 +12,15 @@ import org.apache.http.util.Args;
 
 public class ClientBuilder {
 
-    private HttpClientBuilder clientBuilder = HttpClients.custom();
-    private CookieStore cookieStore = new BasicCookieStore();
+    HttpClientBuilder clientBuilder = HttpClients.custom();
+    CookieStore cookieStore = new BasicCookieStore();
 
     public ClientBuilder setProxy(String hostname, int port){
 
         Args.notBlank(hostname, "hostname");
-        Args.notNegative(port, "port");
+        if(port <-1 || port > 65535){
+            throw new RuntimeException("Invalid http socket port");
+        }
         DefaultProxyRoutePlanner routePlanner = new DefaultProxyRoutePlanner(new HttpHost(hostname, port));
         clientBuilder.setRoutePlanner(routePlanner);
         return this;
@@ -46,6 +48,10 @@ public class ClientBuilder {
     public ClientBuilder disableRedirect(){
         clientBuilder.disableRedirectHandling();
         return this;
+    }
+
+    HttpUtils defaultBuild(){
+        return new HttpUtils(HttpClients.createDefault());
     }
 
     public HttpUtils build(){
