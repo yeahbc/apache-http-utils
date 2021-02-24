@@ -16,8 +16,8 @@ import java.util.List;
 
 public class HttpUtils {
 
-    private final CloseableHttpClient httpClient;
-    private CloseableHttpResponse httpResponse;
+    final CloseableHttpClient httpClient;
+    CloseableHttpResponse httpResponse;
 
     public HttpUtils(CloseableHttpClient httpClient){
         this.httpClient = httpClient;
@@ -39,12 +39,8 @@ public class HttpUtils {
         return new RequestBuilder(this, "POST", url);
     }
 
-    protected CloseableHttpClient getHttpClient(){
-        return httpClient;
-    }
-
-    protected void setHttpResponse(CloseableHttpResponse httpResponse){
-        this.httpResponse = httpResponse;
+    public int getStatusCode(){
+        return (httpResponse != null) ? httpResponse.getStatusLine().getStatusCode() : -1;
     }
 
     public String[] getHeaders(String headerName){
